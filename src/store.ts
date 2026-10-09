@@ -14,17 +14,38 @@ import type {
   FluidNCSetting,
 } from './types'
 
-export type Theme = 'light' | 'dark' | 'anthracite-dark' | 'midnight-dark'
+export type Theme = 'light' | 'dark' | 'anthracite-dark' | 'midnight-dark' | 'pinkograph' | 'h4xx0r'
 
-const DARK_THEME_CLASSES = ['dark', 'anthracite-dark', 'midnight-dark'] as const
+const DARK_THEME_CLASSES = ['dark', 'anthracite-dark', 'midnight-dark', 'pinkograph', 'h4xx0r'] as const
+
+// Show themes repaint .dark rather than standing alone, so the dark syntax
+// colours and the remotely fetched Config Studio still see a dark page.
+const DARK_LAYERED_THEMES: readonly Theme[] = ['pinkograph', 'h4xx0r']
+
+// h4xx0r's 80s computer fonts. Only fetched once the theme is picked; offline
+// machines fall back to the system monospace.
+const H4XX0R_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen&family=VT323&display=swap'
 
 function isValidTheme(v: string | null): v is Theme {
-  return v === 'light' || v === 'dark' || v === 'anthracite-dark' || v === 'midnight-dark'
+  return v === 'light' || (DARK_THEME_CLASSES as readonly string[]).includes(v ?? '')
+}
+
+function loadStylesheetOnce(id: string, href: string) {
+  if (document.getElementById(id)) return
+  const link = document.createElement('link')
+  link.id = id
+  link.rel = 'stylesheet'
+  link.href = href
+  document.head.appendChild(link)
 }
 
 function applyThemeClass(theme: Theme) {
-  document.documentElement.classList.remove(...DARK_THEME_CLASSES)
-  if (theme !== 'light') document.documentElement.classList.add(theme)
+  const classes = document.documentElement.classList
+  classes.remove(...DARK_THEME_CLASSES)
+  if (theme === 'light') return
+  classes.add(theme)
+  if (DARK_LAYERED_THEMES.includes(theme)) classes.add('dark')
+  if (theme === 'h4xx0r') loadStylesheetOnce('h4xx0r-fonts', H4XX0R_FONTS_URL)
 }
 
 const _savedTheme = localStorage.getItem('theme')

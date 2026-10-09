@@ -379,7 +379,7 @@ export function AboutModal({ onClose }: Props) {
             <img
               src={fluidncLogo}
               alt="FluidNC"
-              className="h-10 w-auto"
+              className="app-logo h-10 w-auto"
               style={theme !== 'light' ? { filter: 'invert(1) hue-rotate(180deg)' } : undefined}
             />
             <div className="text-[12px] text-text-muted">

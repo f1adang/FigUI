@@ -144,7 +144,7 @@ export function Terminal({ onExpandToggle, expanded = false }: TerminalProps = {
 
       <div
         ref={logRef}
-        className="flex-1 overflow-y-auto min-h-0 py-2 bg-[var(--bg)] relative"
+        className="terminal-output flex-1 overflow-y-auto min-h-0 py-2 bg-[var(--bg)] relative"
         onScroll={handleScroll}
       >
         {lines.map(l => (
