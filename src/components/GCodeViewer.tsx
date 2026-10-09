@@ -2132,11 +2132,12 @@ export function GCodeViewer({ className, isTablet, showOverrides, fitToViewSigna
 
   useEffect(() => () => window.clearTimeout(static2DSettleTimerRef.current), [])
 
+  // Layout size, not getBoundingClientRect: that includes ancestor transforms,
+  // so a theme animating #root (h4xx0r's power-on) would squash the canvas.
   function canvasLogicalSize() {
     const container = containerRef.current
     if (!container) return { w: 300, h: 300 }
-    const rect = container.getBoundingClientRect()
-    return { w: rect.width, h: rect.height }
+    return { w: container.clientWidth, h: container.clientHeight }
   }
 
   function fitToView(m?: GCodeModel | null) {
@@ -2798,23 +2799,23 @@ export function GCodeViewer({ className, isTablet, showOverrides, fitToViewSigna
     if (!container) return
 
     const ro = new ResizeObserver(() => {
-      const rect = container.getBoundingClientRect()
+      const { w, h } = canvasLogicalSize()
       const dpr = window.devicePixelRatio || 1
 
       if (canvas2d) {
-        canvas2d.width = rect.width * dpr
-        canvas2d.height = rect.height * dpr
-        canvas2d.style.width = `${rect.width}px`
-        canvas2d.style.height = `${rect.height}px`
+        canvas2d.width = w * dpr
+        canvas2d.height = h * dpr
+        canvas2d.style.width = `${w}px`
+        canvas2d.style.height = `${h}px`
         const ctx = canvas2d.getContext('2d')
         if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       }
 
       if (canvasWebgl) {
-        canvasWebgl.width = rect.width * dpr
-        canvasWebgl.height = rect.height * dpr
-        canvasWebgl.style.width = `${rect.width}px`
-        canvasWebgl.style.height = `${rect.height}px`
+        canvasWebgl.width = w * dpr
+        canvasWebgl.height = h * dpr
+        canvasWebgl.style.width = `${w}px`
+        canvasWebgl.style.height = `${h}px`
       }
 
       scheduleRender()
