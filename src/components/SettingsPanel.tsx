@@ -2312,6 +2312,8 @@ export function SettingsPanel({
                       { id: "dark" as Theme, label: "Dark" },
                       { id: "anthracite-dark" as Theme, label: "Anthracite" },
                       { id: "midnight-dark" as Theme, label: "Midnight" },
+                      { id: "pinkograph" as Theme, label: "Pinkograph" },
+                      { id: "h4xx0r" as Theme, label: "h4xx0r" },
                     ].map(({ id, label }) => (
                       <button
                         key={id}
@@ -2329,10 +2331,10 @@ export function SettingsPanel({
                 ].map(({ label, control }) => (
                   <div
                     key={label}
-                    className="flex items-center justify-between px-5 py-3.5"
+                    className="flex items-center justify-between gap-3 px-5 py-3.5"
                   >
                     <span className="text-base text-text-primary">{label}</span>
-                    <div className="flex items-center gap-0.5 bg-elevated rounded-sm border border-border p-0.5">
+                    <div className="flex flex-wrap justify-end items-center gap-0.5 bg-elevated rounded-sm border border-border p-0.5">
                       {control}
                     </div>
                   </div>
