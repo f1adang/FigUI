@@ -1,0 +1,187 @@
+/*
+ * Pinkograph - neon pink on black, ported from the ESP3D WebUI built-in theme.
+ *
+ * Neon signage: bright true pink lit against deep violet, with cyan as the
+ * classic second tube. The pink stays at hue 330 so it never drifts into
+ * magenta - the purple belongs to the surfaces behind it, not the accent.
+ *
+ * The theme is layered on .dark (see applyThemeClass), so the variables are
+ * scoped to :root.pinkograph to win over .dark regardless of source order.
+ */
+:root.pinkograph {
+  color-scheme: dark;
+  accent-color: #ff6bb5;
+
+  --bg: #0b0014;
+  --surface: #16032a;
+  --elevated: #22064a;
+  --border: #8a376f;
+  --border-strong: #ff6bb5;
+  --accent: #ff6bb5;
+  --accent-hover: #ffa6d4;
+  --text-primary: #ffeaf4;
+  --text-muted: #e3a0c0;
+  --text-dim: #9a5c85;
+  --jog-step-label: #ffeaf4;
+  --ok: #39ff14;
+  --danger: #ff3860;
+  --warn: #ffd400;
+  --info: #00f5ff;
+
+  --ok-rgb: 57 255 20;
+  --danger-rgb: 255 56 96;
+  --warn-rgb: 255 212 0;
+  --info-rgb: 0 245 255;
+  --accent-rgb: 255 107 181;
+  --purple-rgb: 199 125 255;
+  --teal-rgb: 45 226 200;
+
+  --purple: #c77dff;
+  --teal: #2de2c8;
+
+  --jog-r0: #1e0538;
+  --jog-r1: #260744;
+  --jog-r2: #2e0951;
+  --jog-r3: #3c0a66;
+  --jog-label: #e3a0c0;
+}
+
+/* ---------- the room the signs hang in ---------- */
+.pinkograph .app-shell {
+  background-image:
+    radial-gradient(circle at 12% -5%, rgb(255 107 181 / 0.2), transparent 45%),
+    radial-gradient(circle at 88% 105%, rgb(0 245 255 / 0.14), transparent 45%);
+  background-attachment: fixed;
+}
+
+/* ---------- every surface is a lit tube ---------- */
+.pinkograph .panel {
+  border-color: rgb(255 107 181 / 0.75);
+  box-shadow:
+    0 0 10px rgb(255 107 181 / 0.48),
+    0 0 26px rgb(255 107 181 / 0.26),
+    inset 0 0 16px rgb(255 107 181 / 0.1);
+}
+
+.pinkograph .panel-header {
+  background: linear-gradient(90deg, #2a0654 0%, #3c0a66 50%, #2a0654 100%);
+  border-bottom-color: rgb(255 107 181 / 0.6);
+  color: var(--text-primary);
+  text-shadow: 0 0 6px rgb(255 107 181 / 0.9), 0 0 18px rgb(255 107 181 / 0.5);
+}
+
+/* ---------- the main sign, humming ---------- */
+.pinkograph .app-header {
+  background: linear-gradient(90deg, #16032a 0%, #2c0857 50%, #16032a 100%);
+  border-bottom: 2px solid rgb(255 107 181 / 0.9);
+  animation: pinkograph-hum 2.6s ease-in-out infinite;
+}
+
+@keyframes pinkograph-hum {
+  0%, 100% {
+    box-shadow: 0 2px 10px rgb(255 107 181 / 0.45), 0 2px 26px rgb(255 107 181 / 0.2);
+  }
+  50% {
+    box-shadow: 0 2px 18px rgb(255 107 181 / 0.85), 0 2px 44px rgb(255 107 181 / 0.4);
+  }
+}
+
+.pinkograph .app-logo {
+  filter: invert(1) hue-rotate(180deg) drop-shadow(0 0 4px rgb(255 107 181 / 0.9))
+    drop-shadow(0 0 10px rgb(255 107 181 / 0.45)) !important;
+}
+
+/* ---------- controls ---------- */
+/*
+ * Each button glows in its own colour, so a danger button never reads as a
+ * pink one; solid buttons glow in their fill rather than their ink. Buttons
+ * are not uppercased: they also carry user data (macro and file names).
+ */
+.pinkograph .btn {
+  --glow: currentColor;
+  box-shadow: 0 0 9px color-mix(in srgb, var(--glow) 42%, transparent);
+}
+
+.pinkograph .btn-primary { --glow: #ff6bb5; }
+.pinkograph .btn-ok-solid { --glow: var(--ok); }
+.pinkograph .btn-warn-solid { --glow: var(--warn); }
+.pinkograph .btn-danger-solid { --glow: var(--danger); }
+
+.pinkograph .btn-ghost {
+  border-color: rgb(255 107 181 / 0.65);
+}
+
+@media (hover: hover) {
+  .pinkograph .btn:hover:not(:disabled) {
+    box-shadow:
+      0 0 10px color-mix(in srgb, var(--glow) 85%, transparent),
+      0 0 26px color-mix(in srgb, var(--glow) 45%, transparent);
+  }
+
+  .pinkograph :is(.btn-ghost, .btn-danger, .btn-ok, .btn-warn, .btn-accent-soft, .btn-info, .btn-purple, .btn-teal):hover:not(:disabled) {
+    text-shadow: 0 0 8px color-mix(in srgb, currentColor 90%, transparent);
+  }
+
+  .pinkograph .btn-ghost:hover:not(:disabled) {
+    color: #fff;
+    border-color: #ffa6d4;
+  }
+}
+
+/* Dark ink on the lit tubes; white on bright pink or neon green is unreadable */
+.pinkograph .btn-primary,
+.pinkograph .btn-ok-solid {
+  color: #14001f;
+}
+
+.pinkograph .btn-primary {
+  background: linear-gradient(135deg, #ff6bb5 0%, #ffa6d4 100%);
+  border-color: #ffa6d4;
+  box-shadow: 0 0 12px rgb(255 107 181 / 0.7), 0 0 30px rgb(255 107 181 / 0.35);
+}
+
+.pinkograph .jog-cluster-stop {
+  box-shadow: 0 0 10px rgb(255 56 96 / 0.6);
+}
+
+.pinkograph .step-btn[data-active="true"] {
+  box-shadow: 0 0 10px rgb(255 107 181 / 0.6);
+  text-shadow: 0 0 8px rgb(255 107 181 / 0.9);
+}
+
+/* Cyan is the focus tube, so focus never gets lost in all the pink */
+.pinkograph .btn:focus-visible {
+  box-shadow: 0 0 0 2px #00f5ff, 0 0 14px rgb(0 245 255 / 0.6);
+}
+
+.pinkograph .input-field {
+  box-shadow: inset 0 0 8px rgb(255 107 181 / 0.12);
+}
+
+.pinkograph .input-field:focus,
+.pinkograph :is(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea):focus-visible {
+  border-color: #00f5ff;
+  box-shadow: 0 0 8px rgb(0 245 255 / 0.75), 0 0 20px rgb(0 245 255 / 0.35);
+}
+
+/* ---------- readouts burn brightest ---------- */
+.pinkograph .dro-value {
+  text-shadow: 0 0 6px rgb(255 107 181 / 0.95), 0 0 18px rgb(255 107 181 / 0.55);
+}
+
+.pinkograph .terminal-output {
+  box-shadow: inset 0 0 16px rgb(255 107 181 / 0.1);
+}
+
+.pinkograph ::selection {
+  background: #ff6bb5;
+  color: #14001f;
+}
+
+/* Flashing signs are a migraine risk - honour the OS preference */
+@media (prefers-reduced-motion: reduce) {
+  .pinkograph .app-header {
+    animation: none;
+    box-shadow: 0 2px 14px rgb(255 107 181 / 0.55);
+  }
+}

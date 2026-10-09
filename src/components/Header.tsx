@@ -60,9 +60,9 @@ export function Header({ onSettingsClick, onAboutClick, isTablet, sticky }: Prop
   }
 
   return (
-    <header className={`h-12 bg-surface border-b border-border flex items-center px-3 xl:px-4 gap-2 xl:gap-4 shrink-0 overflow-x-auto ${sticky ? 'sticky top-0 z-50' : ''}`}>
+    <header className={`app-header h-12 bg-surface border-b border-border flex items-center px-3 xl:px-4 gap-2 xl:gap-4 shrink-0 overflow-x-auto ${sticky ? 'sticky top-0 z-50' : ''}`}>
       <div className="flex items-center gap-2 shrink-0">
-        <img src={fluidncLogo} alt="FluidNC" className="h-8 w-auto shrink-0" style={theme !== 'light' ? { filter: 'invert(1) hue-rotate(180deg)' } : undefined} />
+        <img src={fluidncLogo} alt="FluidNC" className="app-logo h-8 w-auto shrink-0" style={theme !== 'light' ? { filter: 'invert(1) hue-rotate(180deg)' } : undefined} />
       </div>
 
       <div className="h-5 w-px bg-border" />
