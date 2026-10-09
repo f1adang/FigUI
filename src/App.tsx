@@ -592,7 +592,7 @@ function AppContent() {
   ) : null
 
   return (
-    <div className={`flex flex-col min-h-[100svh] md:h-[100svh] md:overflow-hidden bg-[var(--bg)] relative ${
+    <div className={`app-shell flex flex-col min-h-[100svh] md:h-[100svh] md:overflow-hidden bg-[var(--bg)] relative ${
       compactLandscapeScroll
         ? 'landscape:h-auto landscape:min-h-[100svh] landscape:overflow-y-auto'
         : 'landscape:h-[100svh] landscape:overflow-hidden'
