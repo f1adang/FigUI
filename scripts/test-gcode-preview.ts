@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { MOVE_FEED, parseGCode, parseGCodeAsync } from '../src/lib/gcode'
+import { isPaintTool, MOVE_FEED, paintToolColor, parseGCode, parseGCodeAsync } from '../src/lib/gcode'
 import { buildRenderLines, buildStatic3DGeometry } from '../src/lib/gcodeBuild'
 import { buildJobTimingEstimate } from '../src/lib/jobRuntime'
 import { analyzeRestart, buildRestartProgram } from '../src/lib/gcodeRestart'
@@ -115,6 +115,62 @@ const near = (actual: number | undefined, expected: number, message: string) =>
     sourceName: 'milled.nc', sourcePath: '/sd/milled.nc', safeMachineZMm: -1, clearanceMm: 2, approachFeedMmPerMin: 100,
   })
   assert.ok(['G53 G0 Z-1', 'G0 Z1', 'G94 G1 Z-1 F100'].every(line => milledProgram.includes(`${line}\n`)), milledProgram)
+}
+
+// Brushograph: each `; tray` block is a paint tool in its CMYK colour, and only
+// moves on the paper paint -- not travel a lift above it, time in a cup, or
+// backlash take-ups, which can go deeper than the paper inside a cup.
+{
+  const model = parseGCode([
+    '; trays: cyan, kroma',
+    '; tray cyan',
+    'G00 Z10',
+    'G00 X50 Y-4',
+    '; dip',
+    'G00 Z0',
+    'G4 P0.15 ; stand on the floor',
+    'G01 X50 Y16 Z5.9',
+    'G00 Z2',
+    'G01 X10 Y30',
+    'G00 Z0',
+    'G01 X20 Y30',
+    'G1 X20.5 ; backlash take-up',
+    'G01 X20.5 Y35',
+    'G00 Z2',
+    'G01 X30 Y30',
+    '; tray kroma',
+    'G00 Z0',
+    'G01 X40 Y30',
+  ].join('\n'))
+  const s = model.segments
+  const tools = model.tools ?? []
+  assert.deepEqual(tools.map(tool => tool.label), ['Cyan', 'Black'])
+  assert.equal(paintToolColor(tools[0].number), '#00a6d6')
+  assert.ok(tools.every(tool => isPaintTool(tool.number)))
+  const kinds = Array.from({ length: s.length }, (_, i) => `${s.moveType(i)}:${s.tool(i) === tools[1].number ? 'K' : 'C'}`)
+  assert.deepEqual(kinds, [
+    'rapid:C', 'rapid:C', 'rapid:C',
+    'traverse:C', // the swipe out of the cup
+    'rapid:C',
+    'traverse:C', // carried at Z2
+    'rapid:C', 'feed:C',
+    'traverse:C', // backlash take-up: slack, not a stroke
+    'feed:C',
+    'rapid:C', 'traverse:C',
+    'rapid:K', 'feed:K',
+  ])
+}
+
+// With bed levelling, the paper is a range of heights, all of it painted.
+{
+  const model = parseGCode([
+    '; bed levelling: paper from -0.300 to +0.400 mm about Canvas Height',
+    '; tray magenta',
+    'G01 X0 Y0 Z-0.3',
+    'G01 X10 Y0 Z0.4',
+    'G01 X20 Y0 Z1.4',
+  ].join('\n'))
+  assert.deepEqual(Array.from({ length: model.segments.length }, (_, i) => model.segments.moveType(i)), ['feed', 'feed', 'traverse'])
 }
 
 console.log('G-code preview tests passed')

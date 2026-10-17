@@ -1,6 +1,6 @@
 import { useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import { Eye, Axis3D, Maximize2, Crosshair, Navigation, Play, Pause, Square, CloudDrizzle, Waves, PowerOff, Box, Zap, Orbit, Hand, ListStart, RotateCcw, FilePlus, X, AlertTriangle, Maximize, ChevronDown, Wrench, StepForward } from 'lucide-react'
-import { MOVE_FEED, MOVE_RAPID, type GCodeModel, type Segment, type SegmentTable } from '../lib/gcode'
+import { isPaintTool, MOVE_FEED, MOVE_RAPID, paintToolColor, paintToolRgba, type GCodeModel, type Segment, type SegmentTable } from '../lib/gcode'
 import { useMachineStore } from '../store'
 import { useGCodeStore } from '../store/gcode'
 import { onLine, sendRaw, sendRealtime, sendRealtimeNow, STATUS_POLL_INTERVAL_MS } from '../lib/ws'
@@ -547,12 +547,14 @@ function strokeStatic2DPaths(
 
 function toolPathColor(tool: number | null | undefined) {
   if (tool == null) return CUT_COLOR_FG
+  if (isPaintTool(tool)) return paintToolColor(tool)
   const abs = Math.abs(tool)
   return TOOL_PATH_COLORS[(abs > 0 ? abs - 1 : 0) % TOOL_PATH_COLORS.length]
 }
 
 function toolPathColorRgba(tool: number | null | undefined) {
   if (tool == null) return TOOL_PATH_COLOR_RGBA[0]
+  if (isPaintTool(tool)) return paintToolRgba(tool)
   const abs = Math.abs(tool)
   return TOOL_PATH_COLOR_RGBA[(abs > 0 ? abs - 1 : 0) % TOOL_PATH_COLOR_RGBA.length]
 }

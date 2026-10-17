@@ -3,6 +3,8 @@ import {
   MOVE_RAPID,
   MOVE_TRAVERSE,
   NO_TOOL,
+  isPaintTool,
+  paintToolRgba,
   yieldToEventLoop,
   type Segment,
   type SegmentTable,
@@ -45,6 +47,14 @@ const RAPID_BYTES = toBytes(RAPID_C)
 const TRAVERSE_BYTES = toBytes(TRAVERSE_C)
 const CUT_BYTES = toBytes(CUT_C)
 const TOOL_BYTES = TOOL_COLORS.map(toBytes)
+const paintBytes = new Map<number, number[]>()
+
+function toolBytes(tool: number) {
+  if (!isPaintTool(tool)) return TOOL_BYTES[toolColorIndex(tool)]
+  let bytes = paintBytes.get(tool)
+  if (!bytes) paintBytes.set(tool, bytes = toBytes(paintToolRgba(tool)))
+  return bytes
+}
 
 export function clamp01(value: number) {
   return Math.max(0, Math.min(1, value))
@@ -378,7 +388,7 @@ function lineVisible(lines: RenderLines, index: number, showRapids: boolean, hid
 function lineColor(kind: number, tool: number) {
   if (kind === MOVE_RAPID) return RAPID_BYTES
   if (kind === MOVE_TRAVERSE) return TRAVERSE_BYTES
-  return tool === NO_TOOL ? CUT_BYTES : TOOL_BYTES[toolColorIndex(tool)]
+  return tool === NO_TOOL ? CUT_BYTES : toolBytes(tool)
 }
 
 export function buildStatic3DGeometry(
