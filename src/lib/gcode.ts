@@ -78,6 +78,58 @@ const ARC_PLANES = [17, 18, 19] as const
 export const NO_TOOL = -0x80000000
 
 /**
+ * Brushograph paints from cups rather than changing tools: its WebUI writes
+ * `; tray <name>` before each colour's block, and every stroke after it is
+ * painted with paint picked up from that cup. Each tray becomes a tool number
+ * of its own, well clear of real T numbers, so the preview can colour the
+ * strokes by the paint and the tool legend can hide one colour at a time.
+ *
+ * The CMYK cups take the colours Brushograph's own preview uses. Black is
+ * drawn grey: the preview sits on the panel rather than on white paper, and
+ * near-black disappears into a dark theme.
+ */
+export const PAINT_TOOL_BASE = 0x40000000
+const PAINT_TRAYS: ReadonlyArray<{ names: readonly string[]; label: string; color: string }> = [
+  { names: ['cyan'], label: 'Cyan', color: '#00a6d6' },
+  { names: ['magenta'], label: 'Magenta', color: '#d6008a' },
+  { names: ['yellow'], label: 'Yellow', color: '#c8a800' },
+  { names: ['kroma', 'black'], label: 'Black', color: '#8a8f99' },
+]
+/** For trays outside CMYK (Brushograph's additional colours), in order of appearance. */
+const EXTRA_PAINT_COLORS = ['#2f7fd0', '#c85a2b', '#3f9c6d', '#8a5bd6', '#c0392b'] as const
+const TRAY_MARKER = /^\s*;\s*tray\s+(\S+)\s*$/i
+/** Written before each descent into a cup: from there until the brush rises, it is in the paint, not on the paper. */
+const DIP_MARKER = /^\s*;\s*dip\b/i
+/** Brushograph's backlash compensation: the machine's slack, not a stroke. */
+const BACKLASH_TAKE_UP = /backlash take-up/i
+/** How far the levelled paper rises and falls about the painting height, when the file was levelled. */
+const LEVELLING_NOTE = /^\s*;\s*bed levelling: paper from ([-+]?\d*\.?\d+) to ([-+]?\d*\.?\d+) mm/i
+/**
+ * How far above the lowest stroke a move still counts as on the paper, for a
+ * file that was not levelled. Brushograph lifts between strokes by whole
+ * millimetres, so half of one tells painting from travel.
+ */
+const PAPER_TOLERANCE_MM = 0.5
+
+export function isPaintTool(tool: number | null | undefined): tool is number {
+  return tool != null && tool >= PAINT_TOOL_BASE
+}
+
+/** The colour a paint tray's strokes are drawn in, as `#rrggbb`. */
+export function paintToolColor(tool: number) {
+  const index = tool - PAINT_TOOL_BASE
+  return index < PAINT_TRAYS.length
+    ? PAINT_TRAYS[index].color
+    : EXTRA_PAINT_COLORS[(index - PAINT_TRAYS.length) % EXTRA_PAINT_COLORS.length]
+}
+
+/** `paintToolColor` as normalized RGBA, for WebGL. */
+export function paintToolRgba(tool: number): [number, number, number, number] {
+  const hex = parseInt(paintToolColor(tool).slice(1), 16)
+  return [(hex >> 16 & 255) / 255, (hex >> 8 & 255) / 255, (hex & 255) / 255, 1]
+}
+
+/**
  * Parsed motion stored as typed arrays. Laser raster jobs routinely contain
  * millions of moves, and one JS object per move exhausts the browser's memory.
  *
@@ -315,6 +367,11 @@ export class GCodeParser {
   private activeTool: number | null = null
   private sawToolChange = false
   private readonly toolMap = new Map<number, GCodeTool>()
+  // Brushograph paint trays (see PAINT_TOOL_BASE)
+  private readonly paintTrayTools = new Map<string, number>()
+  private extraPaintTrays = 0
+  private inCup = false
+  private paperRange: number | null = null
   private readonly fixedDelays: Array<[number, number]> = []
   private readonly spindleTransitions: Array<[number, 'on' | 'off']> = []
   private timingEndLine: number | undefined
@@ -326,6 +383,8 @@ export class GCodeParser {
   private readonly gCodes: number[] = []
   private readonly mCodes: number[] = []
   private numberEnd = 0
+  /** Where the line's `;` comment starts, or -1. */
+  private commentStart = -1
 
   // Output, sized once the lines have been counted
   private countPos = 0
@@ -419,6 +478,7 @@ export class GCodeParser {
   finish(): GCodeModel {
     this.parseUntil()
     const n = this.count
+    if (this.paintTrayTools.size > 0) this.markPaintStrokes()
     // Release over-allocated capacity when it is a significant share of memory.
     const trim = n < this.capacity * 0.75
     const cut = <T extends Float64Array | Float32Array | Uint32Array | Uint8Array | Int32Array>(array: T, size: number): T =>
@@ -451,6 +511,62 @@ export class GCodeParser {
       spindleTransitions: this.spindleTransitions,
       timingEndLine: this.timingEndLine,
     }
+  }
+
+  /**
+   * A brush leaves paint only where it stands on the paper. Between strokes it
+   * is carried a lift above it, and into the cups and up their stairs, with G1
+   * moves all the same, so those are drawn as travel rather than in the
+   * paint's colour. The paper is the lowest height a painted move ends at
+   * (cups and backlash take-ups already set aside, as they go deeper); with
+   * bed levelling it spans the range the file's note gives.
+   */
+  private markPaintStrokes() {
+    const { flags, tools, px, py, pz } = this
+    let paper = Infinity
+    for (let index = 0; index < this.count; index++) {
+      if ((flags[index] & FLAG_MOVE_MASK) !== MOVE_FEED || !isPaintTool(tools[index])) continue
+      if (px[index] === px[index + 1] && py[index] === py[index + 1]) continue
+      if (pz[index + 1] < paper) paper = pz[index + 1]
+    }
+    if (!isFinite(paper)) return
+    const top = paper + (this.paperRange ?? PAPER_TOLERANCE_MM) + 1e-3
+    for (let index = 0; index < this.count; index++) {
+      if ((flags[index] & FLAG_MOVE_MASK) !== MOVE_FEED || !isPaintTool(tools[index])) continue
+      if (pz[index] > top || pz[index + 1] > top) flags[index] = (flags[index] & ~FLAG_MOVE_MASK) | MOVE_TRAVERSE
+    }
+  }
+
+  /** Comment-only lines: Brushograph's tray, dip and levelling notes. */
+  private parseComment(start: number, end: number, sourceLine: number) {
+    const text = this.text
+    let index = start
+    while (index < end && text.charCodeAt(index) <= 32) index++
+    if (index >= end || text.charCodeAt(index) !== CH_SEMICOLON) return
+    const line = text.slice(index, end)
+    const tray = TRAY_MARKER.exec(line)
+    if (tray) {
+      this.selectPaintTray(tray[1], sourceLine)
+    } else if (this.paintTrayTools.size > 0 && DIP_MARKER.test(line)) {
+      this.inCup = true
+    } else {
+      const levelled = LEVELLING_NOTE.exec(line)
+      if (levelled) this.paperRange = Math.max(0, parseFloat(levelled[2]) - parseFloat(levelled[1]))
+    }
+  }
+
+  private selectPaintTray(name: string, sourceLine: number) {
+    const key = name.toLowerCase()
+    let tool = this.paintTrayTools.get(key)
+    if (tool === undefined) {
+      const cmyk = PAINT_TRAYS.findIndex(tray => tray.names.includes(key))
+      tool = PAINT_TOOL_BASE + (cmyk >= 0 ? cmyk : PAINT_TRAYS.length + this.extraPaintTrays++)
+      this.paintTrayTools.set(key, tool)
+      if (!this.toolMap.has(tool)) {
+        this.toolMap.set(tool, { number: tool, label: cmyk >= 0 ? PAINT_TRAYS[cmyk].label : name, sourceLine })
+      }
+    }
+    this.activeTool = tool
   }
 
   private expandBounds(px: number, py: number, pz: number) {
@@ -519,6 +635,7 @@ export class GCodeParser {
     mCodes.length = 0
     let mask = 0
     let index = start
+    this.commentStart = -1
     while (index < end) {
       let code = text.charCodeAt(index)
       if (code === CH_LPAREN) {
@@ -528,6 +645,7 @@ export class GCodeParser {
           continue
         }
       } else if (code === CH_SEMICOLON) {
+        this.commentStart = index
         break
       } else {
         if (code >= CH_LOWER_A && code <= CH_LOWER_Z) code -= 32
@@ -594,7 +712,10 @@ export class GCodeParser {
     const words = this.words
     const gCodes = this.gCodes
     const mCodes = this.mCodes
-    if (mask === 0 && gCodes.length === 0 && mCodes.length === 0) return
+    if (mask === 0 && gCodes.length === 0 && mCodes.length === 0) {
+      this.parseComment(start, end, sourceLine)
+      return
+    }
 
     // Tool naming needs the comment text; such lines are rare.
     let stripped: ReturnType<typeof stripComments> | null = null
@@ -723,7 +844,16 @@ export class GCodeParser {
     this.expandBounds(x0, y0, z0)
     this.expandBounds(x, y, z)
 
-    const moveCode = this.rapid ? MOVE_RAPID : this.spindleEverOn && !this.spindleOn ? MOVE_TRAVERSE : MOVE_FEED
+    let moveCode = this.rapid ? MOVE_RAPID : this.spindleEverOn && !this.spindleOn ? MOVE_TRAVERSE : MOVE_FEED
+    if (this.inCup) {
+      // In the paint, not on the paper, until the move that lifts out of it.
+      if (moveCode === MOVE_FEED) moveCode = MOVE_TRAVERSE
+      if (z > z0 + 1e-3) this.inCup = false
+    } else if (moveCode === MOVE_FEED && this.paintTrayTools.size > 0 && this.commentStart >= 0
+      && BACKLASH_TAKE_UP.test(this.text.slice(this.commentStart, end))) {
+      // Made wherever the axis turns, in a cup as often as on the paper.
+      moveCode = MOVE_TRAVERSE
+    }
     let flags = moveCode
     let feed = 0
     if (moveCode !== MOVE_RAPID) {
