@@ -263,11 +263,11 @@ function AppContent() {
     cachedHostFailures.current = 0
     // Only refresh ESP info on a fresh probe.
     const axes = (info['Axisletters'] ?? '').length
-    const hostname = info['HostName']?.trim() ?? httpHost
-    if (hostname) document.title = hostname
+    const hostname = info['HostName']?.trim()
+    document.title = hostname || 'FluidNC'
     setEspInfo({
       version:        info['FWVersion']?.trim()       ?? '',
-      hostname,
+      hostname:       hostname                         ?? httpHost,
       authentication: info['Authentication']?.trim()   === 'Enabled',
       asyncMode,
       wsPort:         parseInt(wsPort, 10),

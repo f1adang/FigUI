@@ -321,7 +321,7 @@ export function fetchLocalFavicon(): Promise<string | null> {
   return serializeFilesystem('local', async () => {
     const res = await fetch(`${base}/favicon.ico`)
     // Some servers answer unknown paths with an HTML page instead of a 404
-    if (!res.ok || !res.headers.get('Content-Type')?.startsWith('image/')) return null
+    if (!res.ok || !/^image\//i.test(res.headers.get('Content-Type') ?? '')) return null
     return URL.createObjectURL(await res.blob())
   })
 }
