@@ -4,7 +4,7 @@ import { useGCodeStore } from './store/gcode'
 import { useGCodeSenderStore } from './store/gcodeSender'
 import { useTerminalStore } from './store/terminal'
 import { connect, isSocketOpen, onLine, sendStartupQueries } from './lib/ws'
-import { setBase, getBase, getDeviceInfo, getDeviceInfoFast, loadMacroCfg, WebUIBlockedError } from './lib/http'
+import { setBase, getBase, getDeviceInfo, getDeviceInfoFast, loadMacroCfg, fetchLocalFavicon, WebUIBlockedError } from './lib/http'
 import { isWasmBridgeActive, WASM_BRIDGE_BASE } from './wasmBridge/shimTransport'
 import { parseESP800 } from './lib/parser'
 import { loadControllerConfigSettings } from './lib/controllerConfig'
@@ -361,6 +361,7 @@ function AppContent() {
   }, [connected, phase])
 
   const macrosLoaded = useRef(false)
+  const faviconLoaded = useRef(false)
   useEffect(() => {
     if (phase !== 'ready' || !connected) return
     return scheduleControllerStartup(async canContinue => {
@@ -375,6 +376,16 @@ function AppContent() {
       }
       if (!canContinue()) return false
       await prefetchInternalFiles()
+      if (!canContinue()) return false
+      if (!faviconLoaded.current) {
+        const url = await fetchLocalFavicon().catch(() => null)
+        const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+        if (url && link) {
+          link.removeAttribute('type')
+          link.href = url
+        }
+        faviconLoaded.current = true
+      }
       return canContinue()
     }, setStartupPending)
   }, [connected, phase, setMacros, setStartupPending])
